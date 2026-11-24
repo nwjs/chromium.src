@@ -191,9 +191,11 @@ void ConfigureWindowStyles(
   //    WS_CAPTION in its style.
   //
   // Software composited windows can continue to use WS_EX_LAYERED.
-  bool is_translucent = !content::g_support_transparency ?
-      (params.opacity == Widget::InitParams::WindowOpacity::kTranslucent) :
-      (params.opacity == Widget::InitParams::WindowOpacity::kTranslucent || params.force_software_compositing);
+  // NW.js: upstream removed per-widget software compositing
+  // (Widget::InitParams::force_software_compositing) in M158, so the
+  // translucency decision is based on the requested opacity alone.
+  bool is_translucent =
+      params.opacity == Widget::InitParams::WindowOpacity::kTranslucent;
 
   WindowStyles styles = CalculateWindowStylesFromInitParams(
       params, widget_delegate, native_widget_delegate, is_translucent);
