@@ -739,6 +739,16 @@ config("compiler") {
     cflags_cc += [ "-Wno-trigraphs" ]
   }
 
+  # NW.js: clang 24's <arm_vector_types.h> declares the Arm FPM builtins without
+  # C language linkage, and the Windows SDK's UCRT <wchar.h> now includes
+  # <arm_neon.h> in C++ translation units, which makes that a hard error on
+  # arm64. Force-include <arm_neon.h> with C linkage first. See
+  # //build/win/nw_arm64_neon_c_linkage.h for details.
+  if (is_win && target_cpu == "arm64") {
+    cflags_cc += [ "/FI" + rebase_path("//build/win/nw_arm64_neon_c_linkage.h",
+                                       root_build_dir) ]
+  }
+
   # Fuchsia enables this by default.
   if (use_relative_vtables_abi && !is_fuchsia) {
     cflags_cc += [ "-fexperimental-relative-c++-abi-vtables" ]
