@@ -363,6 +363,8 @@ void RecordValidationFailedStudyName(std::string_view study_name) {
 
 }  // namespace
 
+BASE_FEATURE(kVariationsHttpFallback, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kVariationsRuntimeMutability, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kVariationsRuntimeMutabilityRotateUmaLog,
@@ -814,6 +816,14 @@ void VariationsService::DoFetchFromURL(const GURL& url,
   // Tell the server that delta-compressed and gzipped seeds are supported.
   const char* supported_im = enable_deltas ? "x-bm,gzip" : "gzip";
   resource_request->headers.SetHeader("A-IM", supported_im);
+
+  // Advertise the pinned seed signing key IDs trusted by this client. Key ID 0
+  // is the legacy ECDSA P-256 key and is omitted once distrusted.
+  const char* supported_key_ids =
+      local_state_->GetBoolean(prefs::kVariationsLegacySeedKeyDistrusted)
+          ? kSupportedSeedKeyIdsWithoutLegacy
+          : kSupportedSeedKeyIdsWithLegacy;
+  resource_request->headers.SetHeader(kSeedKeyIdsHeaderName, supported_key_ids);
 
   pending_seed_request_ = network::SimpleURLLoader::Create(
       std::move(resource_request), traffic_annotation);
@@ -1335,9 +1345,10 @@ void VariationsService::OnSimpleLoaderComplete(
 
 bool VariationsService::MaybeRetryOverHTTP() {
   // If the current fetch attempt was over an HTTPS connection, retry the
-  // fetch immediately over an HTTP connection. We only do this if an insecure
-  // variations URL is set and its scheme is HTTP.
-  if (!last_request_was_http_retry_ &&
+  // fetch immediately over an HTTP connection. We only do this if HTTP fallback
+  // is enabled and an insecure variations URL is set with an HTTP scheme.
+  if (base::FeatureList::IsEnabled(kVariationsHttpFallback) &&
+      !last_request_was_http_retry_ &&
       !insecure_variations_server_url_.is_empty() &&
       insecure_variations_server_url_.SchemeIs(url::kHttpScheme)) {
     last_request_was_http_retry_ = true;
@@ -1770,7 +1781,7 @@ bool VariationsService::SetUpFieldTrials(
   const bool result = field_trial_creator_.SetUpFieldTrials(
       variation_ids, extra_overrides, std::move(feature_list), state_manager_,
       platform_field_trials, &safe_seed_manager_,
-      /*add_entropy_source_to_variations_ids=*/false, *entropy_providers_);
+      /*low_entropy_source_value=*/std::nullopt, *entropy_providers_);
   InitCrashKeys();
   return result;
 }

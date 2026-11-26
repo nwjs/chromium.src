@@ -5,6 +5,7 @@
 #include "android_webview/browser/aw_feature_list_creator.h"
 
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -82,14 +83,11 @@ const char* const kNonembeddedLowEntropySourceDenylist[] = {
     "AutofillAiCrowdsourcingPredictions",
     "AutofillAndroidUseGlobalIdForFormComparison",
     "AutofillFixIframeOwnership",
-    "AutofillMoveSmallFormLogicToClient",
     "AutofillOnlyConsiderSingleFieldFormsAsSearchForms",
     "AutofillSupportSplitZipCode",
-    "BrokenAlternativeServiceDelays",
     "ComponentsBase32InRust",
     "CompressionDictionaryTTL",
     "DefaultANGLEVulkan",
-    "DisablePersistBrokenAlternativeServices",
     "DomStorageSqliteNewDatabases",
     "EnableQuicReadMultipleAndUdpGRO",
     "FlushPersistentSystemProfileOnWrite",
@@ -100,21 +98,17 @@ const char* const kNonembeddedLowEntropySourceDenylist[] = {
     "IcuNormalizerMigration",
     "IdbSqliteOnDiskRollout",
     "IndexedDBConnectionDeduplication",
-    "LazyParseInlineStyleSheets",
     "MediaCodecLinearBlock",
     "MetricsLogTrimmingLimitsWebView",
     "MojoDirectSharedMemoryAllocation",
     "MutationEvents",
     "MutationEventsTurnDownHighRisk",
-    "NetTaskScheduler",
-    "NetworkQualityEstimatorAsyncNotifyHeadersReceived",
     "NoSelectionMenuCaching",
     "PartitionAllocBackupRefPtrAndroid",
     "PartitionAllocMiracleObject",
     "PartitionAllocTighterAlignedAllocBound",
     "PaymentHandlerDialogUseInitiatorInUrlLoadForAndroid",
     "PaymentRequestEnforceLNAWithClientSecurityState",
-    "Prerender2FallbackPrefetchSpecRules",
     "PreviewHandwritingGesture",
     "PrioritizeMainFrameNavigationNetworkResponse",
     "QUIC",
@@ -124,7 +118,6 @@ const char* const kNonembeddedLowEntropySourceDenylist[] = {
     "RustyIcoFeature",
     "ScrollJankV4MetricFastScrollContinuityRequiresSameDirection",
     "ScrollPredictorEnhancements",
-    "SimpleCachePrefetchExperiment2",
     "TextClassifierTimeout",
     "ThreeDSecureTelemetry",
     "UMA-Uniformity-Trial-0.5-Percent-1",
@@ -144,18 +137,10 @@ const char* const kNonembeddedLowEntropySourceDenylist[] = {
     "V8Turbolev",
     "VariationsFeatureAccessLogging",
     "VulkanImaginationMSAA",
-    "WebViewAndroidThreadPriority",
-    "WebViewBackgroundTracingInit",
-    "WebViewBoostRendererPriorityOnNavigation",
-    "WebViewEnableDnsPlatform",
-    "WebViewInitInConstructor",
     "WebViewMemoryProfilingClient",
     "WebViewMigrateVisitedLinks",
-    "WebViewMoveWorkToProviderInit",
     "WebViewMultiProfileSkipDefaultProfile",
     "WebViewPrefetchAheadOfPrerender",
-    "WebViewPrefetchOffTheMainThread",
-    "WebViewPrewarmDictionaryOnPreconnect",
     "WebViewReducedFinchTime",
     "WebViewSurfaceControlV2",
     "WebviewSingleSharedContextState",
@@ -222,6 +207,8 @@ const char* const kPersistentPrefsAllowlist[] = {
     // determine if the seed is expired.
     variations::prefs::kVariationsLastFetchTime,
     variations::prefs::kVariationsSeedDate,
+    // Flag indicating that the legacy seed signing key is distrusted.
+    variations::prefs::kVariationsLegacySeedKeyDistrusted,
 
     // The state of the previous background tracing session.
     tracing::kBackgroundTracingSessionState,
@@ -433,10 +420,12 @@ void AwFeatureListCreator::SetUpFieldTrials() {
           /*enable_limited_entropy_mode=*/false);
 
   std::unique_ptr<const variations::EntropyProviders> entropy_providers;
+  std::optional<int> low_entropy_source_value;
 
   if (nonembedded_low_entropy_source >= 0) {
     local_state_->SetInteger(prefs::kWebViewLowEntropySource,
                              nonembedded_low_entropy_source);
+    low_entropy_source_value = nonembedded_low_entropy_source;
 
     // If we have a nonembedded low entropy source, wrap the standard providers.
     entropy_providers = std::make_unique<AwEntropyProviders>(
@@ -446,6 +435,8 @@ void AwFeatureListCreator::SetUpFieldTrials() {
             std::from_range, kNonembeddedLowEntropySourceDenylist),
         limited_entropy_randomization_source);
   } else {
+    low_entropy_source_value =
+        metrics_client->metrics_state_manager()->GetLowEntropySource();
     entropy_providers = std::move(standard_providers);
   }
 
@@ -458,7 +449,7 @@ void AwFeatureListCreator::SetUpFieldTrials() {
       variation_ids, GetSwitchDependentFeatureOverrides(*command_line),
       std::move(feature_list), metrics_client->metrics_state_manager(),
       aw_field_trials_.get(), &ignored_safe_seed_manager,
-      /*add_entropy_source_to_variations_ids=*/true, *entropy_providers);
+      low_entropy_source_value, *entropy_providers);
 }
 
 }  // namespace android_webview
